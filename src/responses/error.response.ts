@@ -4,6 +4,7 @@ import type { Response } from "express";
 export type ErrorCode =
   | "VALIDATION_FAILED"
   | "INVALID_JSON"
+  | "INVALID_SIGNATURE"
   | "UNAUTHORIZED"
   | "FORBIDDEN"
   | "NOT_FOUND"

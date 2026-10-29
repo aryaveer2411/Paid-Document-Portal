@@ -5,8 +5,14 @@ import { ApiError } from "./errors/api.error.js";
 import { ErrorResponse } from "./responses/error.response.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
+import { checkoutRouter } from "./routes/checkout.routes.js";
+import { productRouter } from "./routes/product.routes.js";
+import { webhookRouter } from "./routes/webhook.routes.js";
 
 export const app = express();
+
+// Before express.json(): the webhook needs the untouched raw body to verify Stripe's signature
+app.use("/api/webhooks", webhookRouter);
 
 app.use(express.json());
 
@@ -24,6 +30,8 @@ app.get("/config.json", (_req: Request, res: Response) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/products", productRouter);
+app.use("/api/checkout", checkoutRouter);
 
 // Unknown routes
 app.use((_req: Request, res: Response) => {

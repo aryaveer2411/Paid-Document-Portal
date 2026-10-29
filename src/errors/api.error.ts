@@ -14,6 +14,9 @@ export class ApiError extends Error {
   static validation(details: ErrorDetail[]) {
     return new ApiError(400, "VALIDATION_FAILED", "Request validation failed", details);
   }
+  static invalidSignature(message = "Invalid webhook signature") {
+    return new ApiError(400, "INVALID_SIGNATURE", message);
+  }
   static unauthorized(message = "Not signed in") {
     return new ApiError(401, "UNAUTHORIZED", message);
   }

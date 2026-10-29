@@ -35,7 +35,12 @@
     <p>Signed in as <strong id="who"></strong> (<span id="role"></span>) <button id="logout-btn">Sign out</button></p>
 
     <div id="client-view" hidden>
-      <p class="muted">Client area: catalog and purchases come next.</p>
+      <p id="checkout-status" class="muted"></p>
+      <h2>Documents</h2>
+      <table>
+        <thead><tr><th>Title</th><th>Price</th><th>Access</th></tr></thead>
+        <tbody id="catalog-rows"></tbody>
+      </table>
     </div>
 
     <div id="admin-view" hidden>

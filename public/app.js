@@ -42,6 +42,10 @@ async function render() {
     $("admin-view").hidden = user.role !== "admin";
     $("client-view").hidden = user.role === "admin";
     if (user.role === "admin") await loadProducts();
+    else {
+      await loadCatalog();
+      handleCheckoutReturn();
+    }
   } catch (err) {
     showError(err.message);
   }
@@ -92,6 +96,68 @@ function productRow(p) {
   }
   tr.append(actions);
   return tr;
+}
+
+async function loadCatalog() {
+  const { products } = await api("/api/products");
+  $("catalog-rows").replaceChildren(...products.map(catalogRow));
+  return products;
+}
+
+function catalogRow(p) {
+  const tr = document.createElement("tr");
+  for (const text of [p.title, formatPrice(p.price)]) {
+    const td = document.createElement("td");
+    td.textContent = text;
+    tr.append(td);
+  }
+  const access = document.createElement("td");
+  if (p.owned) {
+    access.textContent = "Owned";
+  } else {
+    const buy = Object.assign(document.createElement("button"), { textContent: "Buy" });
+    buy.onclick = async () => {
+      showError();
+      buy.disabled = true;
+      try {
+        const { checkoutUrl } = await api("/api/checkout", { method: "POST", body: JSON.stringify({ documentId: p.id }) });
+        // Remembered across the Stripe round trip so the return page knows which document to wait for
+        try { sessionStorage.setItem("pendingDocumentId", p.id); } catch {}
+        window.location.assign(checkoutUrl);
+      } catch (err) {
+        showError(err.message);
+        buy.disabled = false;
+      }
+    };
+    access.append(buy);
+  }
+  tr.append(access);
+  return tr;
+}
+
+// Back from Stripe. The redirect proves nothing; access appears only once the webhook has granted it.
+async function handleCheckoutReturn() {
+  const result = new URLSearchParams(location.search).get("checkout");
+  if (!result) return;
+  history.replaceState(null, "", "/");
+  const status = $("checkout-status");
+  if (result === "cancelled") {
+    status.textContent = "Checkout cancelled. You were not charged.";
+    return;
+  }
+  let documentId = null;
+  try { documentId = sessionStorage.getItem("pendingDocumentId"); sessionStorage.removeItem("pendingDocumentId"); } catch {}
+  status.textContent = "Payment received, confirming access…";
+  // Webhook usually lands within seconds; poll briefly instead of trusting the redirect
+  for (let i = 0; i < 10; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const products = await loadCatalog().catch(() => []);
+    if (products.some((p) => p.owned && (!documentId || p.id === documentId))) {
+      status.textContent = "Access granted.";
+      return;
+    }
+  }
+  status.textContent = "Payment is still being confirmed. Refresh in a minute.";
 }
 
 // Run an admin action, then refresh the table
