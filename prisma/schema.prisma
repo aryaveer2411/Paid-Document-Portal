@@ -81,7 +81,7 @@ model Price {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   documentId  String   @map("document_id") @db.Uuid
   amountCents Int      @map("amount_cents")
-  currency    String   @default("usd")
+  currency    String   @default("inr")
   active      Boolean  @default(true)
   createdById String?  @map("created_by") @db.Uuid
   updatedById String?  @map("updated_by") @db.Uuid
