@@ -9,9 +9,11 @@
   },
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node --env-file-if-exists=.env dist/index.js",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "web:dev": "npm --prefix web run dev",
     "web:build": "npm --prefix web run build",
     "db:generate": "prisma generate",
@@ -19,7 +21,7 @@
     "stripe:sync": "tsx --env-file-if-exists=.env src/scripts/stripeSync.ts",
     "zoho:retry": "tsx --env-file-if-exists=.env src/scripts/zohoRetry.ts",
     "stripe:reconcile": "tsx --env-file-if-exists=.env src/scripts/stripeReconcile.ts",
-    "refund:retry":"tsx --env-file-if-exists=.env src/scripts/refundRetry.ts",
+    "refund:retry": "tsx --env-file-if-exists=.env src/scripts/refundRetry.ts",
     "postinstall": "prisma generate"
   },
   "license": "ISC",
@@ -37,10 +39,13 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^20.19.43",
+    "@types/supertest": "^7.2.1",
     "@types/ws": "^8.18.2",
     "dotenv": "^18.0.9",
     "prisma": "^7.10.1",
+    "supertest": "^7.3.1",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12"
   }
 }

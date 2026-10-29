@@ -14,13 +14,14 @@ Test data and test payments only.
 4. [Setup](#setup)
 5. [Sample data and demo](#sample-data-and-demo)
 6. [Verifying each requirement](#verifying-each-requirement)
-7. [Retry and maintenance commands](#retry-and-maintenance-commands)
-8. [API](#api)
-9. [Environment variables](#environment-variables)
-10. [Project layout](#project-layout)
-11. [Edge cases handled](#edge-cases-handled)
-12. [Known limits and what could break](#known-limits-and-what-could-break)
-13. [Troubleshooting](#troubleshooting)
+7. [Automated tests](#automated-tests)
+8. [Retry and maintenance commands](#retry-and-maintenance-commands)
+9. [API](#api)
+10. [Environment variables](#environment-variables)
+11. [Project layout](#project-layout)
+12. [Edge cases handled](#edge-cases-handled)
+13. [Known limits and what could break](#known-limits-and-what-could-break)
+14. [Troubleshooting](#troubleshooting)
 
 ## Stack
 
@@ -167,6 +168,29 @@ Production-style single server: `npm run web:build && npm run build && npm start
 | Isolation (DB) | In client B's browser console the Orders page query returns only B's rows; selecting `stripe_payment_intent_id` or `crm_sync_error` fails (no column grant) | Only own rows; hidden columns denied |
 | Failed payment | Pay with `4000 0000 0000 0002` (declined) or let the session expire | No entitlement; purchase `failed` after expiry |
 
+## Automated tests
+
+```powershell
+npm test              # run once (Vitest)
+npm run test:watch    # re-run on file changes
+npm run typecheck     # also type-checks the test files
+```
+
+The tests run fully offline: no `.env`, database, Stripe, Zoho or Supabase account needed. `vitest.config.ts` sets
+fake environment values, Prisma is replaced by an in-memory fake (`src/tests/fakeDb.ts`) or mocks, `fetch` is
+stubbed for Zoho, and Supabase Auth/Storage are mocked. Stripe signatures are real HMACs made with the fake
+`whsec_` secret via `stripe.webhooks.generateTestHeaderString`.
+
+| File | What it proves |
+|---|---|
+| `src/tests/webhook.service.test.ts` | Signature check (valid, wrong, tampered body, other secret); paid session → paid + one entitlement + CRM `pending` + one Zoho sync; repeated event → `duplicate`, no second entitlement or Zoho call; unpaid / async success; missing or unknown `purchase_id`; user, amount, currency or session mismatch grants nothing; refund-before-payment never grants; paid twice → auto-refund, no second entitlement; re-grant after refund; Zoho failure leaves access intact; expired/failed events; full vs partial `charge.refunded` |
+| `src/tests/crmSync.service.test.ts` | Paid → Deal `Closed Won`, refunded → `Closed Lost`; already `synced` → Zoho not called; Zoho error → stays `pending` with error and attempt count; status change mid-call re-sends newer state; `zoho:retry` counts synced vs still pending |
+| `src/tests/zoho.service.test.ts` | Upsert keyed on `Portal_Purchase_ID`; home currency omitted; token cached and shared by concurrent calls; 401 refreshes once (no loop); token error, network failure, record error and missing Deal id all raise `ZohoError` |
+| `src/tests/app.routes.test.ts` | Through real Express routes: webhook 400 without/with bad signature, 200 on valid raw body, 500 on failure (so Stripe retries); download 401 without session, 404 for another client's document (no signed URL made), first-open stamp undone on storage failure; refund 404 for another client's purchase; `/config.json` leaks no secrets |
+
+Not covered by automated tests: Postgres-level guarantees (RLS policies, unique constraints, `for update` row
+locks) and live Stripe/Zoho calls. Check those with the manual steps in the table above.
+
 ## Retry and maintenance commands
 
 | Command | What it does |
@@ -176,7 +200,8 @@ Production-style single server: `npm run web:build && npm run build && npm start
 | `npm run stripe:reconcile` | Settles purchases stuck in `pending` (webhook lost) by asking Stripe. Also runs inside the server every 10 min |
 | `npm run refund:retry` | Finishes refunds whose Stripe call failed or was unconfirmed |
 | `stripe events resend evt_...` | Re-delivers a Stripe event (safe: duplicates are ignored) |
-| `npm run typecheck` | TypeScript check without emitting files |
+| `npm test` | Runs the automated test suite (offline, see [Automated tests](#automated-tests)) |
+| `npm run typecheck` | TypeScript check without emitting files (includes tests) |
 
 The admin dashboard also has **Retry pending Zoho syncs** and **Retry Stripe** buttons.
 
@@ -253,6 +278,7 @@ src/
   scripts/              CLI entry points for the retry commands
   schema/               Zod request/response schemas
   middleware/           requireUser, requireAdmin, rate limits
+  tests/                Vitest suites + in-memory fake DB (excluded from the build)
 prisma/
   schema.prisma         tables and enums
   migrations/           SQL: tables, RLS, column grants, storage policies, triggers
