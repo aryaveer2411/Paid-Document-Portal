@@ -297,13 +297,24 @@ $("logout-btn").onclick = async () => {
 $("create-form").onsubmit = (e) => {
   e.preventDefault();
   const form = new FormData(e.target);
+  const file = form.get("file");
+  // Quick checks for a fast message; the server re-checks size and real PDF content
+  if (!(file instanceof File) || file.size === 0) return showError("Choose a PDF file.");
+  if (file.size > 10 * 1024 * 1024) return showError("File is over 10 MB.");
   run(async () => {
+    // 1) Upload the raw PDF; the server picks the storage path and returns it
+    const { storagePath } = await api("/api/admin/uploads", {
+      method: "POST",
+      headers: { "Content-Type": "application/pdf" },
+      body: file,
+    });
+    // 2) Create the product pointing at that file
     await api("/api/admin/products", {
       method: "POST",
       body: JSON.stringify({
         title: form.get("title"),
         description: form.get("description") || undefined,
-        storagePath: form.get("storagePath"),
+        storagePath,
         amountCents: toCents(form.get("price")),
       }),
     });

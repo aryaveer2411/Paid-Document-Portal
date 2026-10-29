@@ -1,9 +1,12 @@
 import type { Request, Response } from "express";
+import { ApiError } from "../errors/api.error.js";
+import { bearerToken } from "../middleware/requireUser.middleware.js";
 import { SuccessResponse } from "../responses/success.response.js";
 import { createProductSchema } from "../schema/admin/request/admin.createProduct.js";
 import { productIdSchema } from "../schema/admin/request/admin.productId.js";
 import { updatePriceSchema } from "../schema/admin/request/admin.updatePrice.js";
 import * as adminService from "../services/admin.service.js";
+import * as uploadService from "../services/upload.service.js";
 import { parse } from "../validate.js";
 
 // Controller: parse input → call service → send SuccessResponse. Thrown ApiErrors reach the app error handler.
@@ -31,6 +34,15 @@ export async function retryStripeSync(req: Request, res: Response) {
   const { id } = parse(productIdSchema, req.params);
   const product = await adminService.retryStripeSync(id);
   SuccessResponse.ok({ product }, `Stripe sync ${product.stripeSync.status}`).send(res);
+}
+
+// Body is the raw PDF (Content-Type: application/pdf), parsed by express.raw in the router
+export async function uploadFile(req: Request, res: Response) {
+  if (!Buffer.isBuffer(req.body)) {
+    throw new ApiError(400, "VALIDATION_FAILED", "Send the file as the request body with Content-Type: application/pdf");
+  }
+  const result = await uploadService.uploadDocumentFile(bearerToken(req)!, req.body);
+  SuccessResponse.created(result, "File uploaded").send(res);
 }
 
 export async function listPurchases(_req: Request, res: Response) {

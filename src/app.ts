@@ -51,6 +51,11 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     new ErrorResponse(400, "INVALID_JSON", "Malformed JSON body").send(res);
     return;
   }
+  // express.json()/raw() set this when a body is over its size limit
+  if (typeof err === "object" && err !== null && "type" in err && err.type === "entity.too.large") {
+    new ErrorResponse(413, "PAYLOAD_TOO_LARGE", "Request body too large (file uploads: max 10 MB)").send(res);
+    return;
+  }
   // Unknown error: full detail to server log, generic message to client
   console.error(err);
   new ErrorResponse(500, "INTERNAL_ERROR", "Internal server error").send(res);

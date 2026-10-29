@@ -54,7 +54,7 @@
       <form id="create-form">
         <input name="title" placeholder="Title" maxlength="200" required>
         <textarea name="description" placeholder="Description (optional)" maxlength="2000"></textarea>
-        <input name="storagePath" placeholder="Storage path, e.g. samples/guide.pdf" required>
+        <label>Document (PDF, max 10 MB) <input name="file" type="file" accept="application/pdf" required></label>
         <input name="price" type="number" min="0.01" step="0.01" placeholder="Price (server default currency, e.g. INR)" required>
         <button type="submit">Create</button>
       </form>

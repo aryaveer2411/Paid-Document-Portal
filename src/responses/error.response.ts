@@ -5,6 +5,7 @@ export type ErrorCode =
   | "VALIDATION_FAILED"
   | "INVALID_JSON"
   | "INVALID_SIGNATURE"
+  | "PAYLOAD_TOO_LARGE"
   | "UNAUTHORIZED"
   | "FORBIDDEN"
   | "NOT_FOUND"
