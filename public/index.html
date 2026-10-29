@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Client Portal</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+    form { display: grid; gap: .5rem; max-width: 420px; margin-bottom: 1.5rem; }
+    input, textarea, button { font: inherit; padding: .4rem .6rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: .4rem; border-bottom: 1px solid #ddd; vertical-align: middle; }
+    .muted { color: #777; }
+    .error { color: #b00020; min-height: 1.2em; }
+    .row-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+    .row-actions input { width: 6rem; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1>Client Portal</h1>
+  <p id="error" class="error" role="alert"></p>
+
+  <section id="login-view" hidden>
+    <form id="login-form">
+      <input name="email" type="email" placeholder="Email" autocomplete="email" required>
+      <input name="password" type="password" placeholder="Password" autocomplete="current-password" minlength="8" required>
+      <button type="submit">Sign in</button>
+      <button type="button" id="signup-btn">Create account</button>
+    </form>
+  </section>
+
+  <section id="session-view" hidden>
+    <p>Signed in as <strong id="who"></strong> (<span id="role"></span>) <button id="logout-btn">Sign out</button></p>
+
+    <div id="client-view" hidden>
+      <p class="muted">Client area: catalog and purchases come next.</p>
+    </div>
+
+    <div id="admin-view" hidden>
+      <h2>New product</h2>
+      <form id="create-form">
+        <input name="title" placeholder="Title" maxlength="200" required>
+        <textarea name="description" placeholder="Description (optional)" maxlength="2000"></textarea>
+        <input name="storagePath" placeholder="Storage path, e.g. samples/guide.pdf" required>
+        <input name="price" type="number" min="0.50" step="0.01" placeholder="Price (USD)" required>
+        <button type="submit">Create</button>
+      </form>
+
+      <h2>Products</h2>
+      <table>
+        <thead><tr><th>Title</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="product-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

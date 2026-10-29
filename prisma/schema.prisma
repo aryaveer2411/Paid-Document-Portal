@@ -54,6 +54,8 @@ model Document {
   description String?
   storagePath String   @unique @map("storage_path")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  // Soft delete: set = no new purchases; existing entitlements keep working
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(6)
 
   stripeProductId   String?          @unique @map("stripe_product_id")
   stripeSyncStatus  StripeSyncStatus @default(pending) @map("stripe_sync_status")

@@ -1,18 +1,28 @@
+import { fileURLToPath } from "node:url";
 import express, { type NextFunction, type Request, type Response } from "express";
-import { requireUser } from "./middleware/requireUser.js";
+import { env } from "./config/env.js";
+import { HttpError } from "./httpError.js";
+import { adminRouter } from "./routes/admin.routes.js";
+import { authRouter } from "./routes/auth.routes.js";
 
 export const app = express();
 
 app.use(express.json());
 
+// ../public resolves to <project>/public from both src/ (tsx) and dist/ (node)
+app.use(express.static(fileURLToPath(new URL("../public", import.meta.url))));
+
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
-// Who am I? Quick check that a browser session token is accepted
-app.get("/me", requireUser, (req: Request, res: Response) => {
-  res.json({ user: req.user });
+// Browser-safe values only: the page needs them to start supabase-js. Never add secret keys here.
+app.get("/config.json", (_req: Request, res: Response) => {
+  res.json({ supabaseUrl: env.SUPABASE_URL, supabasePublishableKey: env.SUPABASE_PUBLISHABLE_KEY });
 });
+
+app.use("/api/auth", authRouter);
+app.use("/api/admin", adminRouter);
 
 // Unknown routes
 app.use((_req: Request, res: Response) => {
@@ -21,6 +31,15 @@ app.use((_req: Request, res: Response) => {
 
 // Central error handler; Express 5 forwards async throws here
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof HttpError) {
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
+  // express.json() sets type on malformed bodies
+  if (typeof err === "object" && err !== null && "type" in err && err.type === "entity.parse.failed") {
+    res.status(400).json({ error: "Malformed JSON body" });
+    return;
+  }
   console.error(err);
   res.status(500).json({ error: "Internal server error" });
 });
