@@ -1,7 +1,8 @@
 import { fileURLToPath } from "node:url";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { env } from "./config/env.js";
-import { HttpError } from "./httpError.js";
+import { ApiError } from "./errors/api.error.js";
+import { ErrorResponse } from "./responses/error.response.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
 
@@ -26,20 +27,21 @@ app.use("/api/admin", adminRouter);
 
 // Unknown routes
 app.use((_req: Request, res: Response) => {
-  res.status(404).json({ error: "Not found" });
+  new ErrorResponse(404, "NOT_FOUND", "Route not found").send(res);
 });
 
-// Central error handler; Express 5 forwards async throws here
+// Central error handler; Express 5 forwards async throws here. Only place error bodies are built.
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  if (err instanceof HttpError) {
-    res.status(err.status).json({ error: err.message });
+  if (err instanceof ApiError) {
+    err.toResponse().send(res);
     return;
   }
   // express.json() sets type on malformed bodies
   if (typeof err === "object" && err !== null && "type" in err && err.type === "entity.parse.failed") {
-    res.status(400).json({ error: "Malformed JSON body" });
+    new ErrorResponse(400, "INVALID_JSON", "Malformed JSON body").send(res);
     return;
   }
+  // Unknown error: full detail to server log, generic message to client
   console.error(err);
-  res.status(500).json({ error: "Internal server error" });
+  new ErrorResponse(500, "INTERNAL_ERROR", "Internal server error").send(res);
 });

@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../db.js";
+import { ApiError } from "../errors/api.error.js";
 import type { UserRole } from "../generated/prisma/client.js";
 import { supabase } from "../supabase.js";
 
@@ -21,25 +22,17 @@ export function bearerToken(req: Request): string | null {
 
 // Browser sends `Authorization: Bearer <supabase access_token>`.
 // getUser() asks Supabase Auth to validate it, so expired or signed-out tokens are rejected.
-export async function requireUser(req: Request, res: Response, next: NextFunction) {
+// Express 5 forwards throws (sync or async) from middleware to the app error handler
+export async function requireUser(req: Request, _res: Response, next: NextFunction) {
   const token = bearerToken(req);
-  if (!token) {
-    res.status(401).json({ error: "Missing bearer token" });
-    return;
-  }
+  if (!token) throw ApiError.unauthorized("Missing bearer token");
 
   const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) {
-    res.status(401).json({ error: "Invalid or expired session" });
-    return;
-  }
+  if (error || !data.user) throw ApiError.unauthorized("Invalid or expired session");
 
   // Role comes from our DB (set by SQL only), never from the token or request body
   const profile = await prisma.user.findUnique({ where: { id: data.user.id }, select: { role: true } });
-  if (!profile) {
-    res.status(403).json({ error: "No profile for this account" });
-    return;
-  }
+  if (!profile) throw ApiError.forbidden("No profile for this account");
 
   req.user = { id: data.user.id, email: data.user.email ?? null, role: profile.role };
   next();

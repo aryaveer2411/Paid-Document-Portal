@@ -15,10 +15,13 @@ async function api(path, options = {}) {
     ...options,
     headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }), ...options.headers },
   });
-  if (res.status === 204) return {};
+  // Server envelope: { success, message, data } or { success: false, error: { code, message, details? } }
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status})`);
-  return body;
+  if (!res.ok || !body.success) {
+    const details = body.error?.details?.map((d) => `${d.path}: ${d.message}`).join("; ");
+    throw new Error([body.error?.message ?? `Request failed (${res.status})`, details].filter(Boolean).join(" — "));
+  }
+  return body.data ?? {};
 }
 
 const toCents = (dollars) => Math.round(Number(dollars) * 100);
