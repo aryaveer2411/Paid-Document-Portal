@@ -1,4 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from "express";
+import { requireUser } from "./middleware/requireUser.js";
 
 export const app = express();
 
@@ -6,6 +7,11 @@ app.use(express.json());
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
+});
+
+// Who am I? Quick check that a browser session token is accepted
+app.get("/me", requireUser, (req: Request, res: Response) => {
+  res.json({ user: req.user });
 });
 
 // Unknown routes

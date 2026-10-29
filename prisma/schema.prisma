@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  client
+  admin
+
+  @@map("user_role")
+}
+
+enum PurchaseStatus {
+  pending
+  paid
+  failed
+  refunded
+
+  @@map("purchase_status")
+}
+
+enum StripeSyncStatus {
+  pending
+  synced
+  failed
+
+  @@map("stripe_sync_status")
+}
+
+model User {
+  id               String   @id @db.Uuid
+  email            String   @unique
+  fullName         String?  @map("full_name")
+  role             UserRole @default(client)
+  stripeCustomerId String?  @unique @map("stripe_customer_id")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdPrices Price[]       @relation("PriceCreatedBy")
+  updatedPrices Price[]       @relation("PriceUpdatedBy")
+  purchases     Purchase[]
+  entitlements  Entitlement[]
+
+  @@map("users")
+}
+
+model Document {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  description String?
+  storagePath String   @unique @map("storage_path")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  stripeProductId   String?          @unique @map("stripe_product_id")
+  stripeSyncStatus  StripeSyncStatus @default(pending) @map("stripe_sync_status")
+  stripeSyncVersion Int              @default(1) @map("stripe_sync_version")
+  stripeSyncError   String?          @map("stripe_sync_error")
+  stripeSyncedAt    DateTime?        @map("stripe_synced_at") @db.Timestamptz(6)
+
+  prices       Price[]
+  purchases    Purchase[]
+  entitlements Entitlement[]
+
+  @@map("documents")
+}
+
+model Price {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId  String   @map("document_id") @db.Uuid
+  amountCents Int      @map("amount_cents")
+  currency    String   @default("usd")
+  active      Boolean  @default(true)
+  createdById String?  @map("created_by") @db.Uuid
+  updatedById String?  @map("updated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  stripePriceId     String?          @unique @map("stripe_price_id")
+  stripeSyncStatus  StripeSyncStatus @default(pending) @map("stripe_sync_status")
+  stripeSyncVersion Int              @default(1) @map("stripe_sync_version")
+  stripeSyncError   String?          @map("stripe_sync_error")
+  stripeSyncedAt    DateTime?        @map("stripe_synced_at") @db.Timestamptz(6)
+
+  document  Document   @relation(fields: [documentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdBy User?      @relation("PriceCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updatedBy User?      @relation("PriceUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  purchases Purchase[]
+
+  @@map("prices")
+}
+
+model Purchase {
+  id                      String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                  String         @map("user_id") @db.Uuid
+  documentId              String         @map("document_id") @db.Uuid
+  priceId                 String         @map("price_id") @db.Uuid
+  amountCents             Int            @map("amount_cents")
+  currency                String
+  status                  PurchaseStatus @default(pending)
+  stripeCheckoutSessionId String?        @unique @map("stripe_checkout_session_id")
+  stripePaymentIntentId   String?        @unique @map("stripe_payment_intent_id")
+  paidAt                  DateTime?      @map("paid_at") @db.Timestamptz(6)
+  createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  document     Document      @relation(fields: [documentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  price        Price         @relation(fields: [priceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  entitlement  Entitlement?
+  stripeEvents StripeEvent[]
+
+  @@index([userId], map: "purchases_user_idx")
+  @@map("purchases")
+}
+
+model Entitlement {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  documentId String    @map("document_id") @db.Uuid
+  purchaseId String    @unique @map("purchase_id") @db.Uuid
+  grantedAt  DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([userId, documentId])
+  @@map("entitlements")
+}
+
+model StripeEvent {
+  id         String   @id
+  type       String
+  purchaseId String?  @map("purchase_id") @db.Uuid
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  purchase Purchase? @relation(fields: [purchaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@map("stripe_events")
+}

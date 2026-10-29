@@ -5,6 +5,11 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   // Base URL Stripe redirects back to after Checkout; trailing slash stripped
   APP_URL: z.url().default("http://localhost:3000").transform((url) => url.replace(/\/+$/, "")),
+  // Runtime connection (Supabase pooler OK); migrations use DIRECT_URL via prisma.config.ts
+  DATABASE_URL: z.url(),
+  SUPABASE_URL: z.url(),
+  // Public by design (browser-safe); RLS protects data. Never use the secret/service_role key here.
+  SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
   STRIPE_SECRET_KEY: z.string().regex(/^(sk|rk)_/, "must start with sk_ or rk_"),
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
 });
