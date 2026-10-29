@@ -36,7 +36,7 @@ async function render() {
 
   try {
     const { user } = await api("/api/auth/me");
-    $("who").textContent = user.email;
+    $("who").textContent = `${user.fullName} <${user.email}>`;
     $("role").textContent = user.role;
     // UI hint only; every /api/admin call is re-checked on the server
     $("admin-view").hidden = user.role !== "admin";
@@ -121,10 +121,13 @@ $("signup-btn").onclick = async () => {
   const form = new FormData($("login-form"));
   const email = form.get("email");
   const password = form.get("password");
+  // Not `required` in HTML: same form is used for sign in, which needs no name. Server validates too.
+  const fullName = form.get("fullName")?.trim();
+  if (!fullName) return showError("Full name is required to create an account.");
   try {
     const { needsEmailConfirmation } = await api("/api/auth/signup", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, fullName }),
     });
     if (needsEmailConfirmation) return showError("Check your email to confirm the account, then sign in.");
     await login(email, password);

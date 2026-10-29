@@ -4,7 +4,7 @@ import { ApiError } from "../errors/api.error.js";
 import type { UserRole } from "../generated/prisma/client.js";
 import { supabase } from "../supabase.js";
 
-export type AuthUser = { id: string; email: string | null; role: UserRole };
+export type AuthUser = { id: string; email: string | null; fullName: string; role: UserRole };
 
 declare global {
   namespace Express {
@@ -31,9 +31,9 @@ export async function requireUser(req: Request, _res: Response, next: NextFuncti
   if (error || !data.user) throw ApiError.unauthorized("Invalid or expired session");
 
   // Role comes from our DB (set by SQL only), never from the token or request body
-  const profile = await prisma.user.findUnique({ where: { id: data.user.id }, select: { role: true } });
+  const profile = await prisma.user.findUnique({ where: { id: data.user.id }, select: { role: true, fullName: true } });
   if (!profile) throw ApiError.forbidden("No profile for this account");
 
-  req.user = { id: data.user.id, email: data.user.email ?? null, role: profile.role };
+  req.user = { id: data.user.id, email: data.user.email ?? null, fullName: profile.fullName, role: profile.role };
   next();
 }

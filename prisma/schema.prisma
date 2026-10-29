@@ -34,7 +34,7 @@ enum StripeSyncStatus {
 model User {
   id               String   @id @db.Uuid
   email            String   @unique
-  fullName         String?  @map("full_name")
+  fullName         String   @map("full_name")
   role             UserRole @default(client)
   stripeCustomerId String?  @unique @map("stripe_customer_id")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
