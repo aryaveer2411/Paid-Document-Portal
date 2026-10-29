@@ -121,7 +121,7 @@ Matching never relies on email or name: those can change or collide; the IDs abo
 ### 2. Install and migrate
 
 ```powershell
-copy .env.example .env          # then fill in the values above
+copy .env.example .env          # Windows; macOS/Linux: cp .env.example .env. Then fill in the values above
 npm install                     # also runs prisma generate
 npm --prefix web install
 npm run db:deploy               # applies prisma/migrations to Supabase (tables, RLS, storage rules, triggers)
@@ -167,6 +167,9 @@ Production-style single server: `npm run web:build && npm run build && npm start
 | Isolation (API) | Logged in as client B, call `GET /api/documents/<A-only document id>/download` with B's token | 404 |
 | Isolation (DB) | In client B's browser console the Orders page query returns only B's rows; selecting `stripe_payment_intent_id` or `crm_sync_error` fails (no column grant) | Only own rows; hidden columns denied |
 | Failed payment | Pay with `4000 0000 0000 0002` (declined) or let the session expire | No entitlement; purchase `failed` after expiry |
+
+Test with a real checkout from the portal, not `stripe trigger checkout.session.completed`: Stripe's sample session has
+no `metadata.purchase_id`, so it matches no purchase and correctly grants nothing.
 
 ## Automated tests
 
