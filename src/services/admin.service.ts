@@ -4,6 +4,8 @@ import { Prisma } from "../generated/prisma/client.js";
 import type { CreateProductInput } from "../schema/admin/request/admin.createProduct.js";
 import type { UpdatePriceInput } from "../schema/admin/request/admin.updatePrice.js";
 import { toProduct, withPrices, type ProductResponse } from "../schema/admin/response/admin.product.js";
+import { purchaseInclude, toAdminPurchase, type AdminPurchase } from "../schema/admin/response/admin.purchase.js";
+import { syncAllPendingPurchases } from "./crmSync.service.js";
 import { syncDocumentToStripe } from "./stripeSync.service.js";
 
 // Row lock: price changes and archive on the same product run one after another, never interleaved
@@ -87,6 +89,16 @@ export async function archiveProduct(id: string, adminId: string): Promise<Produ
     }
   });
   return syncAndLoad(id);
+}
+
+export async function listPurchases(): Promise<AdminPurchase[]> {
+  const rows = await prisma.purchase.findMany({ include: purchaseInclude, orderBy: { createdAt: "desc" }, take: 50 });
+  return rows.map(toAdminPurchase);
+}
+
+// Same work as `npm run zoho:retry`, from the admin page
+export async function retryCrmSync() {
+  return syncAllPendingPurchases();
 }
 
 // Manual retry for a product whose Stripe sync is pending or failed

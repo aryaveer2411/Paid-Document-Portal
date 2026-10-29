@@ -15,6 +15,7 @@
     "db:generate": "prisma generate",
     "db:deploy": "prisma migrate deploy",
     "stripe:sync": "tsx --env-file-if-exists=.env src/scripts/stripeSync.ts",
+    "zoho:retry": "tsx --env-file-if-exists=.env src/scripts/zohoRetry.ts",
     "postinstall": "prisma generate"
   },
   "license": "ISC",

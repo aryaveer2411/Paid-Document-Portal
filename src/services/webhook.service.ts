@@ -5,6 +5,7 @@ import { prisma } from "../db.js";
 import { ApiError } from "../errors/api.error.js";
 import type { Prisma } from "../generated/prisma/client.js";
 import { stripe } from "../stripe.js";
+import { syncPaidPurchase } from "./crmSync.service.js";
 
 // processed = we acted · duplicate = event id seen before · ignored = not ours / nothing to do
 export type WebhookOutcome = "processed" | "duplicate" | "ignored";
@@ -62,8 +63,8 @@ async function fulfill(event: Stripe.Event, session: Stripe.Checkout.Session): P
     return "ignored";
   }
 
-  // Event record + paid status + entitlement commit together or not at all
-  return prisma.$transaction(async (tx) => {
+  // Event record + paid status + entitlement + "CRM pending" commit together or not at all
+  const outcome = await prisma.$transaction(async (tx): Promise<WebhookOutcome> => {
     const purchase = await lockPurchase(tx, purchaseId);
     if (!purchase) {
       console.warn(`Stripe event ${event.id}: purchase ${purchaseId} not found, ignored`);
@@ -93,6 +94,8 @@ async function fulfill(event: Stripe.Event, session: Stripe.Checkout.Session): P
         paidAt: new Date(),
         stripeCheckoutSessionId: session.id,
         stripePaymentIntentId: paymentIntentId ?? null,
+        // Recorded with the access grant: even if we crash before calling Zoho, retry will find it
+        crmSyncStatus: "pending",
       },
     });
 
@@ -116,6 +119,13 @@ async function fulfill(event: Stripe.Event, session: Stripe.Checkout.Session): P
     }
     return "processed";
   });
+
+  // After commit and without awaiting: Stripe gets its 200 fast, and a slow or down Zoho can't
+  // undo access. Duplicates never reach here, so a repeated webhook makes no second Zoho update.
+  if (outcome === "processed") {
+    void syncPaidPurchase(purchaseId).catch((err) => console.error(`CRM sync failed for purchase ${purchaseId}`, err));
+  }
+  return outcome;
 }
 
 async function markFailed(event: Stripe.Event, session: Stripe.Checkout.Session): Promise<WebhookOutcome> {

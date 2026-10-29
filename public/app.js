@@ -41,9 +41,9 @@ async function render() {
     // UI hint only; every /api/admin call is re-checked on the server
     $("admin-view").hidden = user.role !== "admin";
     $("client-view").hidden = user.role === "admin";
-    if (user.role === "admin") await loadProducts();
+    if (user.role === "admin") await Promise.all([loadProducts(), loadAdminPurchases()]);
     else {
-      await loadCatalog();
+      await Promise.all([loadCatalog(), loadMyPurchases()]);
       handleCheckoutReturn();
     }
   } catch (err) {
@@ -81,12 +81,13 @@ function productRow(p) {
   if (!p.archivedAt) {
     const wrap = document.createElement("div");
     wrap.className = "row-actions";
-    const input = Object.assign(document.createElement("input"), { type: "number", min: "0.50", step: "0.01" });
+    const input = Object.assign(document.createElement("input"), { type: "number", min: "0.01", step: "0.01" });
     if (p.price) input.value = (p.price.amountCents / 100).toFixed(2);
     const save = Object.assign(document.createElement("button"), { textContent: "Update price" });
     save.onclick = () => run(() => api(`/api/admin/products/${p.id}/price`, {
       method: "PUT",
-      body: JSON.stringify({ amountCents: toCents(input.value), currency: p.price?.currency ?? "usd" }),
+      // No currency sent: server uses its default (INR), so updating an old USD price also moves it to INR
+      body: JSON.stringify({ amountCents: toCents(input.value) }),
     }));
     const del = Object.assign(document.createElement("button"), { textContent: "Delete" });
     del.onclick = () => confirm(`Delete "${p.title}"? Existing buyers keep access.`) &&
@@ -113,7 +114,21 @@ function catalogRow(p) {
   }
   const access = document.createElement("td");
   if (p.owned) {
-    access.textContent = "Owned";
+    const open = Object.assign(document.createElement("button"), { textContent: "Open document" });
+    open.onclick = async () => {
+      showError();
+      // Opened before the await: browsers block pop-ups opened after an async gap
+      const tab = window.open("", "_blank");
+      try {
+        const { url } = await api(`/api/documents/${p.id}/download`);
+        if (tab) tab.location.href = url;
+        else window.location.assign(url);
+      } catch (err) {
+        tab?.close();
+        showError(err.message);
+      }
+    };
+    access.append(open);
   } else {
     const buy = Object.assign(document.createElement("button"), { textContent: "Buy" });
     buy.onclick = async () => {
@@ -135,6 +150,63 @@ function catalogRow(p) {
   return tr;
 }
 
+const textRow = (values) => {
+  const tr = document.createElement("tr");
+  for (const value of values) {
+    const td = document.createElement("td");
+    td.textContent = value;
+    tr.append(td);
+  }
+  return tr;
+};
+const money = (cents, currency) => `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
+const crmLabel = (status) => (status === "synced" ? "Synced" : status === "pending" ? "Pending" : "—");
+
+// Browser → Supabase directly with the user's token. RLS returns only this user's rows,
+// so another client's purchases can't be fetched even by editing this code.
+async function loadMyPurchases() {
+  const [purchases, entitlements] = await Promise.all([
+    supabase
+      .from("purchases")
+      .select("id, document_id, amount_cents, currency, status, crm_sync_status, created_at, documents(title)")
+      .order("created_at", { ascending: false }),
+    supabase.from("entitlements").select("document_id, revoked_at"),
+  ]);
+  if (purchases.error) throw new Error(purchases.error.message);
+  if (entitlements.error) throw new Error(entitlements.error.message);
+
+  const owned = new Set(entitlements.data.filter((e) => !e.revoked_at).map((e) => e.document_id));
+  $("my-purchase-rows").replaceChildren(
+    ...purchases.data.map((p) =>
+      textRow([
+        p.documents?.title ?? "(removed)",
+        money(p.amount_cents, p.currency),
+        p.status,
+        p.status === "paid" && owned.has(p.document_id) ? "Granted" : "No access",
+        crmLabel(p.crm_sync_status),
+      ]),
+    ),
+  );
+}
+
+async function loadAdminPurchases() {
+  const { purchases } = await api("/api/admin/purchases");
+  $("purchase-rows").replaceChildren(
+    ...purchases.map((p) => {
+      const tr = textRow([p.customer, p.documentTitle, money(p.amountCents, p.currency), p.status, crmLabel(p.crmSyncStatus)]);
+      // Hover the Zoho cell for the Deal id or the last error
+      tr.lastChild.title = p.crmSyncError ?? p.zohoDealId ?? "";
+      if (p.crmSyncError && p.crmSyncStatus === "pending") tr.lastChild.textContent += ` (${p.crmSyncError})`;
+      return tr;
+    }),
+  );
+}
+
+$("crm-retry-btn").onclick = () => run(async () => {
+  await api("/api/admin/purchases/crm-sync", { method: "POST" });
+  await loadAdminPurchases();
+});
+
 // Back from Stripe. The redirect proves nothing; access appears only once the webhook has granted it.
 async function handleCheckoutReturn() {
   const result = new URLSearchParams(location.search).get("checkout");
@@ -154,6 +226,9 @@ async function handleCheckoutReturn() {
     const products = await loadCatalog().catch(() => []);
     if (products.some((p) => p.owned && (!documentId || p.id === documentId))) {
       status.textContent = "Access granted.";
+      await loadMyPurchases().catch(() => {});
+      // Zoho update runs right after access; refresh once more to show it synced
+      setTimeout(() => loadMyPurchases().catch(() => {}), 4000);
       return;
     }
   }

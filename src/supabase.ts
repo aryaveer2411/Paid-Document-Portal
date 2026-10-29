@@ -14,6 +14,14 @@ const options = {
 // Server-side client used only to verify user tokens; DB access goes through Prisma
 export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, options);
 
+// Acts as the signed-in user: Storage and table rules (RLS) apply with their identity, not ours
+export function createUserClient(accessToken: string) {
+  return createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
+    ...options,
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+  });
+}
+
 // signUp/signIn store the resulting session in the client's memory; a fresh client per call
 // keeps one user's session from leaking into the shared client above
 export function createRequestClient() {

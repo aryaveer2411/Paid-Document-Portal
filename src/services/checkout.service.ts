@@ -6,6 +6,7 @@ import type { CreateCheckoutInput } from "../schema/checkout/request/checkout.cr
 import { checkoutResponseSchema, type CheckoutResponse } from "../schema/checkout/response/checkout.create.js";
 import { purchasableWhere } from "../schema/product/response/product.catalog.js";
 import { stripe } from "../stripe.js";
+import { openDealForCheckout } from "./crmSync.service.js";
 
 // Unpaid sessions expire so stale tabs can't pay at an old price long after a change
 const SESSION_TTL_SECONDS = 30 * 60;
@@ -42,6 +43,8 @@ export async function createCheckout(
       {
         mode: "payment",
         line_items: [{ price: price.stripePriceId, quantity: 1 }],
+        // Buyer pays in the price's own currency (no local-currency conversion), matching our DB and Zoho
+        adaptive_pricing: { enabled: false },
         client_reference_id: user.id,
         customer_email: user.email ?? undefined,
         metadata,
@@ -62,6 +65,8 @@ export async function createCheckout(
 
   if (!session.url) throw ApiError.upstream("Payment provider returned no checkout page");
   await prisma.purchase.update({ where: { id: purchase.id }, data: { stripeCheckoutSessionId: session.id } });
+  // Open the matching Zoho Deal now; failures are logged only, checkout never waits on the CRM being up
+  await openDealForCheckout(purchase.id);
 
   return checkoutResponseSchema.parse({ purchaseId: purchase.id, checkoutUrl: session.url });
 }

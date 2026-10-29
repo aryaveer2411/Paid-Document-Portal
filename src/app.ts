@@ -6,6 +6,7 @@ import { ErrorResponse } from "./responses/error.response.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { checkoutRouter } from "./routes/checkout.routes.js";
+import { documentRouter } from "./routes/document.routes.js";
 import { productRouter } from "./routes/product.routes.js";
 import { webhookRouter } from "./routes/webhook.routes.js";
 
@@ -32,6 +33,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/products", productRouter);
 app.use("/api/checkout", checkoutRouter);
+app.use("/api/documents", documentRouter);
 
 // Unknown routes
 app.use((_req: Request, res: Response) => {

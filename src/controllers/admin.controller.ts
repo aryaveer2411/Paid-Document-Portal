@@ -33,6 +33,16 @@ export async function retryStripeSync(req: Request, res: Response) {
   SuccessResponse.ok({ product }, `Stripe sync ${product.stripeSync.status}`).send(res);
 }
 
+export async function listPurchases(_req: Request, res: Response) {
+  const purchases = await adminService.listPurchases();
+  SuccessResponse.ok({ purchases }, "Purchases fetched").send(res);
+}
+
+export async function retryCrmSync(_req: Request, res: Response) {
+  const result = await adminService.retryCrmSync();
+  SuccessResponse.ok(result, `Zoho sync: ${result.synced} synced, ${result.stillPending} still pending`).send(res);
+}
+
 export async function deleteProduct(req: Request, res: Response) {
   const { id } = parse(productIdSchema, req.params);
   const product = await adminService.archiveProduct(id, req.user!.id);

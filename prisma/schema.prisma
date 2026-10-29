@@ -31,6 +31,13 @@ enum StripeSyncStatus {
   @@map("stripe_sync_status")
 }
 
+enum CrmSyncStatus {
+  pending
+  synced
+
+  @@map("crm_sync_status")
+}
+
 model User {
   id               String   @id @db.Uuid
   email            String   @unique
@@ -106,6 +113,12 @@ model Purchase {
   stripeCheckoutSessionId String?        @unique @map("stripe_checkout_session_id")
   stripePaymentIntentId   String?        @unique @map("stripe_payment_intent_id")
   paidAt                  DateTime?      @map("paid_at") @db.Timestamptz(6)
+  // Null until paid; 'pending' set together with access, 'synced' once Zoho confirms
+  zohoDealId              String?        @unique @map("zoho_deal_id")
+  crmSyncStatus           CrmSyncStatus? @map("crm_sync_status")
+  crmSyncError            String?        @map("crm_sync_error")
+  crmSyncAttempts         Int            @default(0) @map("crm_sync_attempts")
+  crmSyncedAt             DateTime?      @map("crm_synced_at") @db.Timestamptz(6)
   createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
