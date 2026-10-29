@@ -3,3 +3,7 @@ dist/
 .env
 *.log
 /src/generated/prisma
+
+# Personal video notes
+KEY_IDEAS.md
+EDGE_CASES.md

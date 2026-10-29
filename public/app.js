@@ -61,9 +61,19 @@ function productRow(p) {
     td.textContent = text;
     return td;
   };
-  tr.append(cell(p.title), cell(formatPrice(p.price)), cell(p.archivedAt ? "Deleted" : "Available"));
+  const sync = p.stripeSync;
+  const stripeCell = cell(sync.status === "failed" ? `failed: ${sync.error ?? "unknown error"}` : sync.status);
+  // Hover shows the Stripe ids, useful when matching rows to the Stripe dashboard
+  stripeCell.title = [p.stripeProductId, p.price?.stripePriceId].filter(Boolean).join(" / ");
+  tr.append(cell(p.title), cell(formatPrice(p.price)), cell(p.archivedAt ? "Deleted" : "Available"), stripeCell);
 
   const actions = document.createElement("td");
+  // Deleted products need syncing too (Stripe product must be archived)
+  if (sync.status !== "synced") {
+    const retry = Object.assign(document.createElement("button"), { textContent: "Retry Stripe sync" });
+    retry.onclick = () => run(() => api(`/api/admin/products/${p.id}/stripe-sync`, { method: "POST" }));
+    actions.append(retry);
+  }
   if (!p.archivedAt) {
     const wrap = document.createElement("div");
     wrap.className = "row-actions";

@@ -27,6 +27,12 @@ export async function updatePrice(req: Request, res: Response) {
   SuccessResponse.ok({ product }, "Price updated").send(res);
 }
 
+export async function retryStripeSync(req: Request, res: Response) {
+  const { id } = parse(productIdSchema, req.params);
+  const product = await adminService.retryStripeSync(id);
+  SuccessResponse.ok({ product }, `Stripe sync ${product.stripeSync.status}`).send(res);
+}
+
 export async function deleteProduct(req: Request, res: Response) {
   const { id } = parse(productIdSchema, req.params);
   const product = await adminService.archiveProduct(id, req.user!.id);
