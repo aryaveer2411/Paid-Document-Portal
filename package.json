@@ -12,10 +12,14 @@
     "build": "tsc",
     "start": "node --env-file-if-exists=.env dist/index.js",
     "typecheck": "tsc --noEmit",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build",
     "db:generate": "prisma generate",
     "db:deploy": "prisma migrate deploy",
     "stripe:sync": "tsx --env-file-if-exists=.env src/scripts/stripeSync.ts",
     "zoho:retry": "tsx --env-file-if-exists=.env src/scripts/zohoRetry.ts",
+    "stripe:reconcile": "tsx --env-file-if-exists=.env src/scripts/stripeReconcile.ts",
+    "refund:retry":"tsx --env-file-if-exists=.env src/scripts/refundRetry.ts",
     "postinstall": "prisma generate"
   },
   "license": "ISC",
@@ -25,6 +29,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.109.0",
     "express": "^5.3.0",
+    "express-rate-limit": "^8.7.2",
     "stripe": "^23.0.1",
     "ws": "^8.22.0",
     "zod": "^4.6.7"

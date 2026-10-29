@@ -3,6 +3,8 @@ import { z } from "zod";
 const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  // Reverse proxies in front of the server (load balancer = 1); decides which IP rate limits see
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   // Base URL Stripe redirects back to after Checkout; trailing slash stripped
   APP_URL: z.url().default("http://localhost:3000").transform((url) => url.replace(/\/+$/, "")),
   // Runtime connection (Supabase pooler OK); migrations use DIRECT_URL via prisma.config.ts

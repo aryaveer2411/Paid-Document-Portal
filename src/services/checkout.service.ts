@@ -11,9 +11,15 @@ import { openDealForCheckout } from "./crmSync.service.js";
 // Unpaid sessions expire so stale tabs can't pay at an old price long after a change
 const SESSION_TTL_SECONDS = 30 * 60;
 
+// The browser session lives in per-origin storage, so Stripe must send the buyer back to the origin they
+// bought from (e.g. Vite on 5173 in dev). Only allowlisted origins: anything else falls back to APP_URL.
+const RETURN_ORIGINS = new Set([env.APP_URL, ...(env.NODE_ENV === "development" ? ["http://localhost:5173"] : [])]);
+const returnBase = (origin?: string) => (origin && RETURN_ORIGINS.has(origin) ? origin : env.APP_URL);
+
 export async function createCheckout(
   input: CreateCheckoutInput,
   user: { id: string; email: string | null },
+  origin?: string,
 ): Promise<CheckoutResponse> {
   const doc = await prisma.document.findFirst({
     where: { id: input.documentId, ...purchasableWhere },
@@ -51,8 +57,8 @@ export async function createCheckout(
         payment_intent_data: { metadata },
         expires_at: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
         // Redirect is only for the user's eyes; access is granted by the signed webhook, never by this URL
-        success_url: `${env.APP_URL}/?checkout=success`,
-        cancel_url: `${env.APP_URL}/?checkout=cancelled`,
+        success_url: `${returnBase(origin)}/?checkout=success`,
+        cancel_url: `${returnBase(origin)}/?checkout=cancelled`,
       },
       // One session per purchase row, even if this call is retried
       { idempotencyKey: `checkout-${purchase.id}` },

@@ -119,7 +119,11 @@ model Purchase {
   crmSyncError            String?        @map("crm_sync_error")
   crmSyncAttempts         Int            @default(0) @map("crm_sync_attempts")
   crmSyncedAt             DateTime?      @map("crm_synced_at") @db.Timestamptz(6)
-  createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  // Set with access revoked, before Stripe is asked; status flips to 'refunded' once Stripe confirms
+  refundRequestedAt       DateTime?      @map("refund_requested_at") @db.Timestamptz(6)
+  refundedAt              DateTime?      @map("refunded_at") @db.Timestamptz(6)
+  stripeRefundId          String?        @unique @map("stripe_refund_id")
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   document     Document      @relation(fields: [documentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
@@ -138,8 +142,10 @@ model Entitlement {
   purchaseId String    @unique @map("purchase_id") @db.Uuid
   grantedAt  DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
   revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+  // First download link; once set, the client can no longer self-refund
+  openedAt   DateTime? @map("opened_at") @db.Timestamptz(6)
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   document Document @relation(fields: [documentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 

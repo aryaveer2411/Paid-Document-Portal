@@ -81,10 +81,13 @@ async function zohoRequest(method: string, path: string, payload: unknown, retry
   return record;
 }
 
+// Standard Zoho Deal stages; a refunded purchase becomes "Closed Lost"
+export type DealStage = "Qualification" | "Closed Won" | "Closed Lost";
+
 export type DealInput = {
   purchaseId: string;
   name: string;
-  stage: "Qualification" | "Closed Won";
+  stage: DealStage;
   amount: number;
   // ISO code (e.g. "USD"); without it Zoho reads Amount in the org's home currency
   currency: string;

@@ -20,13 +20,8 @@ export function bearerToken(req: Request): string | null {
   return scheme === "Bearer" && token ? token : null;
 }
 
-// Browser sends `Authorization: Bearer <supabase access_token>`.
-// getUser() asks Supabase Auth to validate it, so expired or signed-out tokens are rejected.
-// Express 5 forwards throws (sync or async) from middleware to the app error handler
-export async function requireUser(req: Request, _res: Response, next: NextFunction) {
-  const token = bearerToken(req);
-  if (!token) throw ApiError.unauthorized("Missing bearer token");
-
+// getUser() asks Supabase Auth to validate the token, so expired or signed-out tokens are rejected
+async function resolveUser(token: string): Promise<AuthUser> {
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user) throw ApiError.unauthorized("Invalid or expired session");
 
@@ -34,6 +29,21 @@ export async function requireUser(req: Request, _res: Response, next: NextFuncti
   const profile = await prisma.user.findUnique({ where: { id: data.user.id }, select: { role: true, fullName: true } });
   if (!profile) throw ApiError.forbidden("No profile for this account");
 
-  req.user = { id: data.user.id, email: data.user.email ?? null, fullName: profile.fullName, role: profile.role };
+  return { id: data.user.id, email: data.user.email ?? null, fullName: profile.fullName, role: profile.role };
+}
+
+// Browser sends `Authorization: Bearer <supabase access_token>`.
+// Express 5 forwards throws (sync or async) from middleware to the app error handler
+export async function requireUser(req: Request, _res: Response, next: NextFunction) {
+  const token = bearerToken(req);
+  if (!token) throw ApiError.unauthorized("Missing bearer token");
+  req.user = await resolveUser(token);
+  next();
+}
+
+// Public routes: attach the user when a valid token is sent, otherwise continue as a guest
+export async function optionalUser(req: Request, _res: Response, next: NextFunction) {
+  const token = bearerToken(req);
+  if (token) req.user = await resolveUser(token).catch(() => undefined);
   next();
 }

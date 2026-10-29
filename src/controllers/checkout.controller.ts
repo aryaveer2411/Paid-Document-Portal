@@ -6,6 +6,6 @@ import { parse } from "../validate.js";
 
 export async function createCheckout(req: Request, res: Response) {
   const body = parse(createCheckoutSchema, req.body);
-  const result = await checkoutService.createCheckout(body, req.user!);
+  const result = await checkoutService.createCheckout(body, req.user!, req.get("origin"));
   SuccessResponse.created(result, "Checkout session created").send(res);
 }
