@@ -300,7 +300,7 @@ web/src/
   logged for review.
 - **Delayed payment methods:** `completed` with `payment_status: unpaid` is ignored until
   `async_payment_succeeded`.
-- **Lost webhook / server down during payment:** the reconciler asks Stripe about purchases pending for over
+- **Lost webhook / server down during payment (reconciler):** the reconciler asks Stripe about purchases pending for over
   10 minutes and applies the same `fulfill` logic, deduped by a `reconcile:<session id>` event id.
 - **Crash between DB commit and Zoho call:** the row is already `crm_sync_status = 'pending'`, so `zoho:retry`
   finds it.
@@ -319,11 +319,14 @@ web/src/
 ## Known limits and what could break
 
 - **`STRIPE_WEBHOOK_SECRET` changes** every time a different `stripe listen` session or endpoint is used. A wrong
-  secret makes every webhook fail with 400; the reconciler still settles payments within about 10 minutes.
+  secret makes every webhook fail with 400; the reconciler still settles payments within 10–20 minutes (or at once with `npm run stripe:reconcile`).
 - **Zoho refresh token revoked**, or the `Portal_Purchase_ID` field deleted or made non-unique: CRM updates stay
   `pending` (or could duplicate Deals if uniqueness is lost). Access is unaffected. Fix the setup, then run
   `npm run zoho:retry`.
 - **Zoho data center mismatch** (`.in` vs `.com`): token refresh fails with `invalid_client`.
+- **Currency mismatch:** a price in a currency other than `ZOHO_HOME_CURRENCY` is sent with `Currency`; if that
+  currency isn't enabled in the Zoho org, Zoho answers `INVALID_DATA: Invalid Currency code` and the CRM update
+  stays `pending`. Keep `DEFAULT_CURRENCY` and `ZOHO_HOME_CURRENCY` the same (both INR here).
 - **Zoho API limits** in Developer Edition are low; a large backlog retried at once may hit them. The retry is
   sequential and can be re-run.
 - **Multiple server instances:** safe (row locks + event dedupe), but each runs the reconcile loop, which wastes

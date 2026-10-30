@@ -28,10 +28,13 @@ export function Home() {
     loadCatalog().catch((e: Error) => setError(e.message));
   }, [user, loading, loadCatalog]);
 
+  // Keyed on the id: auth events (e.g. tab refocus) replace the user object, which would cancel the poll below
+  const userId = user?.id;
+
   // Back from Stripe. The redirect proves nothing; access appears only once the webhook has granted it.
   useEffect(() => {
     const result = params.get("checkout");
-    if (!result || !user) return;
+    if (!result || !userId) return;
     const next = new URLSearchParams(params);
     next.delete("checkout");
     setParams(next, { replace: true });
@@ -60,7 +63,7 @@ export function Home() {
     })();
     return () => { cancelled = true; };
     // Runs once per sign-in; params are read, not watched (we rewrite them above)
-  }, [user]);
+  }, [userId]);
 
   const visible = useMemo(
     () => products.filter((p) => !query || `${p.title} ${p.description ?? ""}`.toLowerCase().includes(query)),
